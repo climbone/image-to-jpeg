@@ -355,88 +355,90 @@ function makePreview(pos) {
   }
 }
 
-// ── TEXT INPUT（canvasWrap内にtextareaを生成） ────────────
+// ── TEXT INPUT — fixed overlay（bodyに直接配置） ──────────
 function showTextInput(cx, cy) {
   commitText();
-  if (!canvasWrap || !canvas) return;
+  if (!canvas) return;
 
   const r   = canvas.getBoundingClientRect();
-  const wr  = canvasWrap.getBoundingClientRect();
   const scx = r.width  / canvas.width;
   const scy = r.height / canvas.height;
 
-  const left = (r.left - wr.left) + cx * scx;
-  const top  = (r.top  - wr.top)  + cy * scy;
+  // viewportの絶対座標（fixed）
+  const left = r.left + cx * scx + window.scrollX;
+  const top  = r.top  + cy * scy + window.scrollY;
 
-  // ラッパーdiv（textarea + 確定ボタンをまとめる）
   const wrap = document.createElement('div');
+  wrap.id = 'textInputWrap';
   wrap.style.cssText = [
-    'position:absolute',
-    `left:${left}px`,
-    `top:${top}px`,
-    'z-index:20',
+    'position:fixed',
+    `left:${r.left + cx * scx}px`,
+    `top:${r.top  + cy * scy}px`,
+    'z-index:9999',
     'display:flex',
     'flex-direction:column',
     'gap:4px',
+    'pointer-events:all',
   ].join(';');
 
   const ta = document.createElement('textarea');
+  ta.placeholder = 'テキストを入力';
   ta.style.cssText = [
-    'min-width:160px',
-    `min-height:${state.fontSize * scx * 2}px`,
+    'min-width:180px',
+    `min-height:${Math.max(32, state.fontSize * scx * 1.8)}px`,
     `font-size:${state.fontSize * scx}px`,
     'font-family:Inter,sans-serif',
     `color:${state.color}`,
-    'background:rgba(255,255,255,0.92)',
-    'border:2px solid #555',
-    'border-radius:3px',
+    'background:#fff',
+    'border:2px solid #333',
+    'border-radius:4px',
     'outline:none',
     'resize:both',
     'padding:4px 6px',
     'line-height:1.4',
-    'box-shadow:0 2px 8px rgba(0,0,0,0.2)',
+    'box-shadow:0 4px 16px rgba(0,0,0,0.25)',
+    'display:block',
   ].join(';');
-  ta._cx = cx;
-  ta._cy = cy;
 
   const btn = document.createElement('button');
-  btn.textContent = '確定 (Enter)';
+  btn.textContent = '確定';
   btn.style.cssText = [
-    'padding:4px 10px',
+    'padding:5px 14px',
     'font-size:12px',
     'font-family:Inter,sans-serif',
+    'font-weight:500',
     'background:#1a1a18',
     'color:#f5f4f0',
     'border:none',
     'border-radius:4px',
     'cursor:pointer',
     'align-self:flex-start',
+    'box-shadow:0 2px 8px rgba(0,0,0,0.2)',
   ].join(';');
 
   wrap.appendChild(ta);
   wrap.appendChild(btn);
+
+  // _cx/_cy はcanvas座標
+  wrap._cx = cx;
+  wrap._cy = cy;
+  wrap._ta = ta;
   textInput = wrap;
-  textInput._ta = ta;
-  textInput._cx = cx;
-  textInput._cy = cy;
-  canvasWrap.appendChild(wrap);
 
-  // 伝播を止める
-  wrap.addEventListener('mousedown', e => e.stopPropagation());
-  wrap.addEventListener('mouseup',   e => e.stopPropagation());
-  wrap.addEventListener('touchstart', e => e.stopPropagation());
+  document.body.appendChild(wrap);
 
-  // 確定ボタン
-  btn.addEventListener('mousedown', e => e.stopPropagation());
+  // すべてのイベント伝播を遮断
+  ['mousedown','mouseup','click','touchstart','touchend'].forEach(ev => {
+    wrap.addEventListener(ev, e => e.stopPropagation());
+  });
+
   btn.addEventListener('click', () => commitText());
-
-  // キーボード
   ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
     if (e.key === 'Escape') { wrap.remove(); textInput = null; }
   });
 
-  setTimeout(() => { ta.focus(); }, 10);
+  ta.focus();
 }
 
 function commitText() {
