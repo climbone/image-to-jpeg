@@ -269,12 +269,6 @@ function setupCanvasEvents() {
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
   canvas.addEventListener('touchend',   e => { e.preventDefault(); onUp(e);   }, { passive: false });
 
-  // textInput表示中に他の場所をクリックしたらcommit
-  document.addEventListener('mousedown', e => {
-    if (textInput && !textInput.contains(e.target)) {
-      commitText();
-    }
-  });
 }
 
 function onDown(e) {
@@ -296,8 +290,7 @@ function onDown(e) {
   }
 
   if (state.tool === 'text') {
-    showTextInput(pos.x, pos.y);
-    state.drawing = false; // textツールはdrawingを使わない
+    // onUpで座標を使うためstartX/Yだけ記録、drawingはtrueのまま
     return;
   }
 
@@ -323,7 +316,11 @@ function onMove(e) {
 function onUp(e) {
   if (!state.drawing || !baseImage) return;
   state.drawing = false;
-  if (state.tool === 'select' || state.tool === 'text') return;
+  if (state.tool === 'select') return;
+  if (state.tool === 'text') {
+    showTextInput(state.startX, state.startY);
+    return;
+  }
 
   const pos = getPos(e);
   let obj = null;
@@ -371,54 +368,88 @@ function showTextInput(cx, cy) {
   const left = (r.left - wr.left) + cx * scx;
   const top  = (r.top  - wr.top)  + cy * scy;
 
-  const ta = document.createElement('textarea');
-  ta.style.cssText = [
+  // ラッパーdiv（textarea + 確定ボタンをまとめる）
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
     'position:absolute',
     `left:${left}px`,
     `top:${top}px`,
+    'z-index:20',
+    'display:flex',
+    'flex-direction:column',
+    'gap:4px',
+  ].join(';');
+
+  const ta = document.createElement('textarea');
+  ta.style.cssText = [
     'min-width:160px',
     `min-height:${state.fontSize * scx * 2}px`,
     `font-size:${state.fontSize * scx}px`,
     'font-family:Inter,sans-serif',
     `color:${state.color}`,
-    'background:rgba(255,255,255,0.85)',
-    'border:2px dashed #666',
+    'background:rgba(255,255,255,0.92)',
+    'border:2px solid #555',
     'border-radius:3px',
     'outline:none',
     'resize:both',
     'padding:4px 6px',
-    'z-index:20',
     'line-height:1.4',
+    'box-shadow:0 2px 8px rgba(0,0,0,0.2)',
   ].join(';');
   ta._cx = cx;
   ta._cy = cy;
-  textInput = ta;
-  canvasWrap.appendChild(ta);
 
-  // マウスダウンの伝播を止めてcanvasのonDownが発火しないようにする
-  ta.addEventListener('mousedown', e => e.stopPropagation());
-  ta.addEventListener('touchstart', e => e.stopPropagation());
+  const btn = document.createElement('button');
+  btn.textContent = '確定 (Enter)';
+  btn.style.cssText = [
+    'padding:4px 10px',
+    'font-size:12px',
+    'font-family:Inter,sans-serif',
+    'background:#1a1a18',
+    'color:#f5f4f0',
+    'border:none',
+    'border-radius:4px',
+    'cursor:pointer',
+    'align-self:flex-start',
+  ].join(';');
 
-  // Enterで確定、Escでキャンセル
+  wrap.appendChild(ta);
+  wrap.appendChild(btn);
+  textInput = wrap;
+  textInput._ta = ta;
+  textInput._cx = cx;
+  textInput._cy = cy;
+  canvasWrap.appendChild(wrap);
+
+  // 伝播を止める
+  wrap.addEventListener('mousedown', e => e.stopPropagation());
+  wrap.addEventListener('mouseup',   e => e.stopPropagation());
+  wrap.addEventListener('touchstart', e => e.stopPropagation());
+
+  // 確定ボタン
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', () => commitText());
+
+  // キーボード
   ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
-    if (e.key === 'Escape') { ta.remove(); textInput = null; }
+    if (e.key === 'Escape') { wrap.remove(); textInput = null; }
   });
 
-  // フォーカスを確実に当てる（mouseupの後にsetTimeoutで）
-  setTimeout(() => { ta.focus(); }, 50);
+  setTimeout(() => { ta.focus(); }, 10);
 }
 
 function commitText() {
   if (!textInput) return;
-  const ta  = textInput;
-  textInput = null;
-  const text = ta.value.trim();
-  ta.remove();
+  const wrap = textInput;
+  textInput  = null;
+  const ta   = wrap._ta;
+  const text = ta ? ta.value.trim() : '';
+  wrap.remove();
   if (text) {
     state.objects.push({
       type: 'text', text,
-      x: ta._cx, y: ta._cy,
+      x: wrap._cx, y: wrap._cy,
       color: state.color, fontSize: state.fontSize, opacity: 1,
     });
     saveHistory(); redraw(); updateLayersList();
