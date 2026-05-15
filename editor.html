@@ -133,6 +133,7 @@
         </select>
 
         <div class="topbar-actions">
+          <button class="btn-ghost" id="reloadImageBtn" style="padding:8px 14px;font-family:var(--mono);font-size:12px">画像を変更</button>
           <button class="btn-ghost" id="undoBtn" title="元に戻す (Ctrl+Z)" style="padding:8px 14px;font-family:var(--mono);font-size:12px">↩ 元に戻す</button>
           <button class="btn-ghost" id="redoBtn" title="やり直し (Ctrl+Y)"  style="padding:8px 14px;font-family:var(--mono);font-size:12px">↪ やり直し</button>
           <button class="btn-ghost" id="clearAllBtn" style="padding:8px 14px;font-family:var(--mono);font-size:12px">クリア</button>
@@ -141,9 +142,8 @@
       </div>
 
       <!-- CANVAS -->
-      <div class="canvas-wrap" id="canvasWrap">
+      <div class="canvas-wrap" id="canvasWrap" style="position:relative">
         <canvas id="mainCanvas"></canvas>
-        <textarea id="textOverlay" class="text-input-overlay" placeholder="テキストを入力 (Enter で確定)"></textarea>
       </div>
 
       <!-- SIDE PANEL -->
