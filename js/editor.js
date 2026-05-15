@@ -268,6 +268,13 @@ function setupCanvasEvents() {
   canvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, { passive: false });
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
   canvas.addEventListener('touchend',   e => { e.preventDefault(); onUp(e);   }, { passive: false });
+
+  // textInput表示中に他の場所をクリックしたらcommit
+  document.addEventListener('mousedown', e => {
+    if (textInput && !textInput.contains(e.target)) {
+      commitText();
+    }
+  });
 }
 
 function onDown(e) {
@@ -289,8 +296,8 @@ function onDown(e) {
   }
 
   if (state.tool === 'text') {
-    commitText();
     showTextInput(pos.x, pos.y);
+    state.drawing = false; // textツールはdrawingを使わない
     return;
   }
 
@@ -369,41 +376,43 @@ function showTextInput(cx, cy) {
     'position:absolute',
     `left:${left}px`,
     `top:${top}px`,
-    'min-width:120px',
-    `min-height:${state.fontSize * scx * 1.5}px`,
+    'min-width:160px',
+    `min-height:${state.fontSize * scx * 2}px`,
     `font-size:${state.fontSize * scx}px`,
     'font-family:Inter,sans-serif',
     `color:${state.color}`,
-    'background:rgba(255,255,255,0.15)',
-    'border:1.5px dashed rgba(0,0,0,0.4)',
+    'background:rgba(255,255,255,0.85)',
+    'border:2px dashed #666',
+    'border-radius:3px',
     'outline:none',
-    'resize:none',
-    'padding:2px 4px',
+    'resize:both',
+    'padding:4px 6px',
     'z-index:20',
     'line-height:1.4',
-    'overflow:hidden',
   ].join(';');
   ta._cx = cx;
   ta._cy = cy;
   textInput = ta;
   canvasWrap.appendChild(ta);
-  ta.focus();
 
+  // マウスダウンの伝播を止めてcanvasのonDownが発火しないようにする
+  ta.addEventListener('mousedown', e => e.stopPropagation());
+  ta.addEventListener('touchstart', e => e.stopPropagation());
+
+  // Enterで確定、Escでキャンセル
   ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
-    if (e.key === 'Escape') { if (textInput === ta) { ta.remove(); textInput = null; } }
+    if (e.key === 'Escape') { ta.remove(); textInput = null; }
   });
-  // blurは一度だけ実行
-  ta.addEventListener('blur', function onBlur() {
-    ta.removeEventListener('blur', onBlur);
-    setTimeout(() => { if (textInput === ta) commitText(); }, 80);
-  });
+
+  // フォーカスを確実に当てる（mouseupの後にsetTimeoutで）
+  setTimeout(() => { ta.focus(); }, 50);
 }
 
 function commitText() {
   if (!textInput) return;
-  const ta   = textInput;
-  textInput  = null; // 先にnullにして二重実行を防ぐ
+  const ta  = textInput;
+  textInput = null;
   const text = ta.value.trim();
   ta.remove();
   if (text) {
