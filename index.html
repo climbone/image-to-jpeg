@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImageForge — 画像→JPEG変換ツール</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #12121a;
+      --bg3: #1c1c28;
+      --border: rgba(255,255,255,0.08);
+      --border-bright: rgba(255,255,255,0.18);
+      --accent: #e8ff47;
+      --accent2: #47ffb2;
+      --text: #f0f0f0;
+      --text-muted: rgba(240,240,240,0.45);
+      --danger: #ff4757;
+      --success: #47ffb2;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── BACKGROUND GRID ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── GLOW ORBS ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 500px; height: 500px; background: rgba(232,255,71,0.06); top: -150px; right: -100px; }
+    .orb-2 { width: 400px; height: 400px; background: rgba(71,255,178,0.05); bottom: 0; left: -100px; }
+
+    /* ── LAYOUT ── */
+    .wrap { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── HEADER ── */
+    header {
+      padding: 56px 0 40px;
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+    }
+    .logo-mark {
+      width: 48px; height: 48px;
+      border: 1.5px solid var(--accent);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -2px;
+      flex-shrink: 0;
+    }
+    .logo-text h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .logo-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      margin-top: 4px;
+    }
+    .badge {
+      margin-left: auto;
+      padding: 6px 12px;
+      border: 1px solid var(--border-bright);
+      border-radius: 100px;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      color: var(--accent2);
+    }
+
+    /* ── FORMATS BAR ── */
+    .formats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    .fmt-chip {
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-muted);
+      background: var(--bg2);
+    }
+    .fmt-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(232,255,71,0.06);
+    }
+
+    /* ── DROP ZONE ── */
+    .drop-zone {
+      border: 1.5px dashed var(--border-bright);
+      border-radius: 20px;
+      background: var(--bg2);
+      padding: 60px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(232,255,71,0.04), transparent 70%);
+      pointer-events: none;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(232,255,71,0.03);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .drop-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .drop-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+    }
+    .drop-sub span {
+      color: var(--accent);
+    }
+
+    /* ── SETTINGS PANEL ── */
+    .settings {
+      margin-top: 20px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+    }
+    .setting-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .setting-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      white-space: nowrap;
+    }
+    .quality-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 140px;
+      height: 3px;
+      background: var(--border-bright);
+      border-radius: 2px;
+      outline: none;
+    }
+    .quality-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .quality-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      color: var(--accent);
+      min-width: 36px;
+    }
+    select.bg-select {
+      background: var(--bg3);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+    }
+    .setting-divider {
+      width: 1px;
+      height: 28px;
+      background: var(--border);
+    }
+
+    /* ── FILE LIST ── */
+    .file-list {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .file-item {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.2s;
+    }
+    .file-item.done { border-color: rgba(71,255,178,0.3); }
+    .file-item.error { border-color: rgba(255,71,87,0.3); }
+
+    .file-thumb {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: var(--bg3);
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .file-thumb-placeholder {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      background: var(--bg3);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      margin-top: 2px;
+    }
+
+    .file-status {
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      flex-shrink: 0;
+    }
+    .status-wait { color: var(--text-muted); }
+    .status-processing { color: var(--accent); animation: pulse 1s infinite; }
+    .status-done { color: var(--success); }
+    .status-error { color: var(--danger); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .file-dl {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--accent2);
+      color: var(--accent2);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      background: rgba(71,255,178,0.06);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.15s;
+    }
+    .file-dl:hover { background: rgba(71,255,178,0.14); }
+
+    .file-remove {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .file-remove:hover { color: var(--danger); }
+
+    /* ── ACTIONS ── */
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      flex: 1;
+      padding: 14px 28px;
+      background: var(--accent);
+      color: #0a0a0f;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0) scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-secondary {
+      padding: 14px 20px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-bright);
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: var(--bg3); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── PROGRESS BAR ── */
+    .progress-bar-wrap {
+      margin-top: 16px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar-wrap.visible { display: block; }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    /* ── STATS STRIP ── */
+    .stats {
+      margin-top: 24px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .stat-item {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .stat-item strong {
+      display: block;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+    }
+
+    /* ── UNSUPPORTED NOTE ── */
+    .note-heic {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: rgba(255,71,87,0.06);
+      border: 1px solid rgba(255,71,87,0.2);
+      font-size: 13px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-muted);
+      display: none;
+    }
+    .note-heic.visible { display: block; }
+    .note-heic strong { color: var(--danger); }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-top: 64px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ── DRAG OVERLAY ── */
+    .drag-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(232,255,71,0.04);
+      border: 3px dashed var(--accent);
+      z-index: 100;
+      display: none;
+      place-items: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent);
+      pointer-events: none;
+    }
+    .drag-overlay.active { display: grid; }
+
+    @media (max-width: 540px) {
+      .settings { flex-direction: column; align-items: flex-start; }
+      .setting-divider { width: 100%; height: 1px; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="drag-overlay" id="dragOverlay">ここにドロップ ↓</div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="wrap">
+  <header>
+    <div class="logo-mark">IF</div>
+    <div class="logo-text">
+      <h1>ImageForge</h1>
+      <p>ブラウザで完結 / サーバー不使用</p>
+    </div>
+    <div class="badge">100% client-side</div>
+  </header>
+
+  <!-- FORMAT CHIPS -->
+  <div class="formats-bar" id="fmtBar">
+    <div class="fmt-chip active">PNG</div>
+    <div class="fmt-chip active">WebP</div>
+    <div class="fmt-chip active">GIF</div>
+    <div class="fmt-chip active">BMP</div>
+    <div class="fmt-chip active">TIFF</div>
+    <div class="fmt-chip active">SVG</div>
+    <div class="fmt-chip active">ICO</div>
+    <div class="fmt-chip" id="heicChip" style="border-color:rgba(255,71,87,0.4);color:rgba(255,71,87,0.7);">HEIC ※</div>
+    <div class="fmt-chip active">AVIF</div>
+    <div class="fmt-chip active">JPEG (そのまま)</div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <label class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.tiff,.tif,.bmp,.ico" multiple>
+    <span class="drop-icon">🖼</span>
+    <p class="drop-title">ファイルをドロップ、またはクリック</p>
+    <p class="drop-sub">PNG / WebP / GIF / BMP / TIFF / SVG / ICO / AVIF → <span>JPEG</span></p>
+  </label>
+
+  <!-- SETTINGS -->
+  <div class="settings">
+    <div class="setting-group">
+      <span class="setting-label">品質</span>
+      <input type="range" class="quality-slider" id="quality" min="10" max="100" value="90" step="1">
+      <span class="quality-val" id="qualityVal">90</span>
+    </div>
+    <div class="setting-divider"></div>
+    <div class="setting-group">
+      <span class="setting-label">透明部分の背景色</span>
+      <select class="bg-select" id="bgColor">
+        <option value="#ffffff">白</option>
+        <option value="#000000">黒</option>
+        <option value="#ff0000">赤</option>
+        <option value="#0000ff">青</option>
+        <option value="#00ff00">緑</option>
+      </select>
+    </div>
+    <div class="setting-divider"></div>
+    <div class="setting-group">
+      <span class="setting-label">最大幅</span>
+      <select class="bg-select" id="maxWidth">
+        <option value="0">制限なし</option>
+        <option value="3840">4K (3840px)</option>
+        <option value="1920">FHD (1920px)</option>
+        <option value="1280">HD (1280px)</option>
+        <option value="800">800px</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- FILE LIST -->
+  <div class="file-list" id="fileList"></div>
+
+  <!-- HEIC NOTE -->
+  <div class="note-heic" id="heicNote">
+    <strong>※ HEIC/HEIF について：</strong> iOS写真形式のHEICはブラウザの標準APIでは変換できません。
+    <a href="https://heic.online" target="_blank" style="color:var(--accent2)">heic.online</a> などの専用ツールをご利用ください。
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn-primary" id="convertBtn">⚡ すべて変換</button>
+    <button class="btn-secondary" id="downloadAllBtn" disabled>📦 ZIP でまとめてDL</button>
+    <button class="btn-secondary" id="clearBtn">✕ クリア</button>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats" id="statsArea" style="display:none">
+    <div class="stat-item"><strong id="statTotal">0</strong>ファイル合計</div>
+    <div class="stat-item"><strong id="statDone">0</strong>変換済み</div>
+    <div class="stat-item"><strong id="statSaved">—</strong>容量削減</div>
+  </div>
+</div>
+
+<footer class="wrap" style="max-width:780px">
+  <span>ImageForge — すべての処理はブラウザ内で完結。ファイルはサーバーに送信されません。</span>
+  <span>PNG · WebP · GIF · BMP · TIFF · SVG · ICO · AVIF → JPEG</span>
+</footer>
+
+<!-- JSZip for batch download -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const files = []; // { file, name, size, type, status, blob, originalSize }
+let converting = false;
+
+// ─── ELEMENTS ────────────────────────────────────────────────────────────────
+const fileInput     = document.getElementById('fileInput');
+const dropZone      = document.getElementById('dropZone');
+const fileList      = document.getElementById('fileList');
+const actions       = document.getElementById('actions');
+const convertBtn    = document.getElementById('convertBtn');
+const downloadAllBtn= document.getElementById('downloadAllBtn');
+const clearBtn      = document.getElementById('clearBtn');
+const quality       = document.getElementById('quality');
+const qualityVal    = document.getElementById('qualityVal');
+const bgColor       = document.getElementById('bgColor');
+const maxWidth      = document.getElementById('maxWidth');
+const progressWrap  = document.getElementById('progressWrap');
+const progressBar   = document.getElementById('progressBar');
+const statsArea     = document.getElementById('statsArea');
+const statTotal     = document.getElementById('statTotal');
+const statDone      = document.getElementById('statDone');
+const statSaved     = document.getElementById('statSaved');
+const heicNote      = document.getElementById('heicNote');
+const dragOverlay   = document.getElementById('dragOverlay');
+
+// ─── QUALITY SLIDER ───────────────────────────────────────────────────────────
+quality.addEventListener('input', () => { qualityVal.textContent = quality.value; });
+
+// ─── FILE INPUT ───────────────────────────────────────────────────────────────
+fileInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+fileInput.addEventListener('click', e => e.stopPropagation());
+
+// ─── DRAG & DROP (window-level) ───────────────────────────────────────────────
+let dragCounter = 0;
+window.addEventListener('dragenter', e => { e.preventDefault(); dragCounter++; dragOverlay.classList.add('active'); });
+window.addEventListener('dragleave', () => { dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dragOverlay.classList.remove('active'); } });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  dragCounter = 0;
+  dragOverlay.classList.remove('active');
+  addFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || /\.(heic|heif|tiff?|bmp|ico|avif)$/i.test(f.name)));
+});
+
+// ─── ADD FILES ────────────────────────────────────────────────────────────────
+function addFiles(newFiles) {
+  let hasHeic = false;
+  newFiles.forEach(f => {
+    if (/\.(heic|heif)$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif') {
+      hasHeic = true;
+      return; // skip HEIC
+    }
+    if (files.find(x => x.name === f.name && x.size === f.size)) return; // dedupe
+    files.push({ file: f, name: f.name, size: f.size, type: f.type, status: 'wait', blob: null, originalSize: f.size });
+  });
+  heicNote.classList.toggle('visible', hasHeic);
+  renderList();
+  if (files.length > 0) {
+    actions.style.display = 'flex';
+    updateStats();
+  }
+}
+
+// ─── RENDER LIST ─────────────────────────────────────────────────────────────
+function renderList() {
+  fileList.innerHTML = '';
+  files.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'file-item' + (f.status === 'done' ? ' done' : f.status === 'error' ? ' error' : '');
+    item.innerHTML = `
+      <div class="file-thumb-placeholder" id="thumb-${i}">🖼</div>
+      <div class="file-info">
+        <div class="file-name">${escHtml(f.name)}</div>
+        <div class="file-meta">${formatBytes(f.size)} · ${f.type || extOf(f.name)}</div>
+      </div>
+      <span class="file-status status-${f.status}" id="status-${i}">${statusLabel(f.status)}</span>
+      ${f.blob ? `<a class="file-dl" href="${URL.createObjectURL(f.blob)}" download="${baseName(f.name)}.jpg">DL</a>` : ''}
+      <button class="file-remove" data-idx="${i}" title="削除">×</button>
+    `;
+    fileList.appendChild(item);
+
+    // lazy thumb
+    if (f.status !== 'done') {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const el = document.getElementById(`thumb-${i}`);
+        if (!el) return;
+        el.outerHTML = `<img class="file-thumb" src="${e.target.result}" alt="">`;
+      };
+      reader.readAsDataURL(f.file);
+    } else if (f.blob) {
+      const el = document.getElementById(`thumb-${i}`);
+      if (el) el.outerHTML = `<img class="file-thumb" src="${URL.createObjectURL(f.blob)}" alt="">`;
+    }
+  });
+
+  // remove buttons
+  fileList.querySelectorAll('.file-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      files.splice(idx, 1);
+      renderList();
+      if (files.length === 0) { actions.style.display = 'none'; statsArea.style.display = 'none'; }
+      else updateStats();
+    });
+  });
+}
+
+// ─── CONVERT ─────────────────────────────────────────────────────────────────
+convertBtn.addEventListener('click', async () => {
+  if (converting || files.length === 0) return;
+  converting = true;
+  convertBtn.disabled = true;
+  downloadAllBtn.disabled = true;
+  progressWrap.classList.add('visible');
+  statsArea.style.display = 'flex';
+
+  const q = parseInt(quality.value) / 100;
+  const bg = bgColor.value;
+  const mw = parseInt(maxWidth.value);
+  let done = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].status === 'done') { done++; continue; }
+    files[i].status = 'processing';
+    updateItemStatus(i);
+    try {
+      files[i].blob = await convertToJpeg(files[i].file, q, bg, mw);
+      files[i].status = 'done';
+      done++;
+    } catch(e) {
+      files[i].status = 'error';
+      console.error(e);
+    }
+    updateItemStatus(i);
+    progressBar.style.width = (done / files.length * 100) + '%';
+    updateStats();
+  }
+
+  converting = false;
+  convertBtn.disabled = false;
+  const allDone = files.every(f => f.status === 'done');
+  downloadAllBtn.disabled = !allDone;
+  if (allDone) renderList(); // refresh DL links
+});
+
+// ─── CONVERT SINGLE FILE ─────────────────────────────────────────────────────
+function convertToJpeg(file, quality, bgHex, maxW) {
+  return new Promise((resolve, reject) => {
+    // SVG → data URL → Image
+    if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const svg = e.target.result;
+        const blob = new Blob([svg], {type: 'image/svg+xml'});
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          // SVG might have no intrinsic size, default 800px
+          const w = img.naturalWidth || 800;
+          const h = img.naturalHeight || 600;
+          resolve(drawToJpeg(img, w, h, quality, bgHex, maxW));
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = reject;
+        img.src = url;
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // TIFF — decode manually via FileReader + raw parsing fallback
+    // For TIFF/BMP/ICO we use createImageBitmap which is widely supported
+    createImageBitmap(file)
+      .then(bitmap => {
+        resolve(drawToJpeg(bitmap, bitmap.width, bitmap.height, quality, bgHex, maxW));
+      })
+      .catch(() => {
+        // fallback: plain FileReader → Image
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => resolve(drawToJpeg(img, img.naturalWidth, img.naturalHeight, quality, bgHex, maxW));
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+  });
+}
+
+function drawToJpeg(source, w, h, quality, bgHex, maxW) {
+  let dw = w, dh = h;
+  if (maxW > 0 && w > maxW) {
+    dw = maxW;
+    dh = Math.round(h * maxW / w);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = dw;
+  canvas.height = dh;
+  const ctx = canvas.getContext('2d');
+
+  // fill background (for transparent images)
+  ctx.fillStyle = bgHex;
+  ctx.fillRect(0, 0, dw, dh);
+  ctx.drawImage(source, 0, 0, dw, dh);
+
+  return new Promise((res, rej) => {
+    canvas.toBlob(blob => blob ? res(blob) : rej(new Error('canvas.toBlob failed')), 'image/jpeg', quality);
+  });
+}
+
+// ─── DOWNLOAD ALL AS ZIP ─────────────────────────────────────────────────────
+downloadAllBtn.addEventListener('click', async () => {
+  const doneFils = files.filter(f => f.status === 'done' && f.blob);
+  if (doneFils.length === 0) return;
+  downloadAllBtn.textContent = '⏳ 作成中...';
+  downloadAllBtn.disabled = true;
+
+  const zip = new JSZip();
+  for (const f of doneFils) {
+    const arrayBuffer = await f.blob.arrayBuffer();
+    zip.file(baseName(f.name) + '.jpg', arrayBuffer);
+  }
+  const content = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'converted_images.zip'; a.click();
+  URL.revokeObjectURL(url);
+  downloadAllBtn.textContent = '📦 ZIP でまとめてDL';
+  downloadAllBtn.disabled = false;
+});
+
+// ─── CLEAR ────────────────────────────────────────────────────────────────────
+clearBtn.addEventListener('click', () => {
+  files.length = 0;
+  fileList.innerHTML = '';
+  actions.style.display = 'none';
+  statsArea.style.display = 'none';
+  progressWrap.classList.remove('visible');
+  progressBar.style.width = '0%';
+  fileInput.value = '';
+  heicNote.classList.remove('visible');
+});
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function updateItemStatus(i) {
+  const el = document.getElementById(`status-${i}`);
+  if (el) {
+    el.className = `file-status status-${files[i].status}`;
+    el.textContent = statusLabel(files[i].status);
+  }
+}
+
+function updateStats() {
+  const done = files.filter(f => f.status === 'done');
+  statTotal.textContent = files.length;
+  statDone.textContent = done.length;
+
+  if (done.length > 0) {
+    const origTotal = done.reduce((s, f) => s + f.originalSize, 0);
+    const newTotal = done.reduce((s, f) => s + (f.blob ? f.blob.size : 0), 0);
+    const saved = origTotal - newTotal;
+    const pct = origTotal > 0 ? Math.round(saved / origTotal * 100) : 0;
+    statSaved.textContent = (saved > 0 ? '−' : '+') + formatBytes(Math.abs(saved)) + ` (${pct}%)`;
+  }
+  statsArea.style.display = 'flex';
+}
+
+function statusLabel(s) {
+  return { wait: '待機中', processing: '変換中…', done: '完了 ✓', error: 'エラー ✗' }[s] || s;
+}
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(2) + ' MB';
+}
+function baseName(name) {
+  return name.replace(/\.[^.]+$/, '');
+}
+function extOf(name) {
+  return (name.match(/\.([^.]+)$/) || ['','?'])[1].toUpperCase();
+}
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
