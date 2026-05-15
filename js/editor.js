@@ -351,65 +351,69 @@ function makePreview(pos) {
   }
 }
 
-// ── TEXT INPUT（canvasWrap内にdivを生成） ─────────────────
+// ── TEXT INPUT（canvasWrap内にtextareaを生成） ────────────
 function showTextInput(cx, cy) {
   commitText();
-  if (!canvasWrap) return;
+  if (!canvasWrap || !canvas) return;
 
   const r   = canvas.getBoundingClientRect();
   const wr  = canvasWrap.getBoundingClientRect();
   const scx = r.width  / canvas.width;
   const scy = r.height / canvas.height;
 
-  // canvasWrap内の相対座標
   const left = (r.left - wr.left) + cx * scx;
   const top  = (r.top  - wr.top)  + cy * scy;
 
-  if (textInput) textInput.remove();
-  textInput = document.createElement('textarea');
-  textInput.style.cssText = `
-    position: absolute;
-    left: ${left}px;
-    top: ${top}px;
-    min-width: 120px;
-    min-height: ${state.fontSize * scx * 1.5}px;
-    font-size: ${state.fontSize * scx}px;
-    font-family: Inter, sans-serif;
-    color: ${state.color};
-    background: rgba(255,255,255,0.15);
-    border: 1.5px dashed rgba(0,0,0,0.4);
-    outline: none;
-    resize: none;
-    padding: 2px 4px;
-    z-index: 20;
-    line-height: 1.4;
-    overflow: hidden;
-  `;
-  textInput._cx = cx;
-  textInput._cy = cy;
-  canvasWrap.appendChild(textInput);
-  textInput.focus();
+  const ta = document.createElement('textarea');
+  ta.style.cssText = [
+    'position:absolute',
+    `left:${left}px`,
+    `top:${top}px`,
+    'min-width:120px',
+    `min-height:${state.fontSize * scx * 1.5}px`,
+    `font-size:${state.fontSize * scx}px`,
+    'font-family:Inter,sans-serif',
+    `color:${state.color}`,
+    'background:rgba(255,255,255,0.15)',
+    'border:1.5px dashed rgba(0,0,0,0.4)',
+    'outline:none',
+    'resize:none',
+    'padding:2px 4px',
+    'z-index:20',
+    'line-height:1.4',
+    'overflow:hidden',
+  ].join(';');
+  ta._cx = cx;
+  ta._cy = cy;
+  textInput = ta;
+  canvasWrap.appendChild(ta);
+  ta.focus();
 
-  textInput.addEventListener('keydown', e => {
+  ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
-    if (e.key === 'Escape') { textInput.remove(); textInput = null; }
+    if (e.key === 'Escape') { if (textInput === ta) { ta.remove(); textInput = null; } }
   });
-  textInput.addEventListener('blur', () => { setTimeout(commitText, 100); });
+  // blurは一度だけ実行
+  ta.addEventListener('blur', function onBlur() {
+    ta.removeEventListener('blur', onBlur);
+    setTimeout(() => { if (textInput === ta) commitText(); }, 80);
+  });
 }
 
 function commitText() {
   if (!textInput) return;
-  const text = textInput.value.trim();
+  const ta   = textInput;
+  textInput  = null; // 先にnullにして二重実行を防ぐ
+  const text = ta.value.trim();
+  ta.remove();
   if (text) {
     state.objects.push({
       type: 'text', text,
-      x: textInput._cx, y: textInput._cy,
+      x: ta._cx, y: ta._cy,
       color: state.color, fontSize: state.fontSize, opacity: 1,
     });
     saveHistory(); redraw(); updateLayersList();
   }
-  textInput.remove();
-  textInput = null;
 }
 
 // ── CROP ──────────────────────────────────────────────────
