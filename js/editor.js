@@ -17,24 +17,11 @@ const state = {
   imageName: 'edited.jpg',
 };
 
-// ── ELEMENTS ─────────────────────────────────────────────
-const canvas       = document.getElementById('mainCanvas');
-const ctx          = canvas.getContext('2d');
-const canvasWrap   = document.querySelector('.canvas-wrap');
-const textOverlay  = document.getElementById('textOverlay');
-const layersList   = document.getElementById('layersList');
-const undoBtn      = document.getElementById('undoBtn');
-const redoBtn      = document.getElementById('redoBtn');
-const saveBtn      = document.getElementById('saveBtn');
-const colorPicker  = document.getElementById('colorPicker');
-const colorSwatch  = document.getElementById('colorSwatch');
-const lineWidthSel = document.getElementById('lineWidthSel');
-const fontSizeSel  = document.getElementById('fontSizeSel');
-const mosaicStr    = document.getElementById('mosaicStr');
-const editorEmpty  = document.getElementById('editorEmpty');
-const editorMain   = document.getElementById('editorMain');
-const editorDrop   = document.getElementById('editorDrop');
-const editorFileIn = document.getElementById('editorFileInput');
+// ── ELEMENTS (init内で設定) ──────────────────────────────
+let canvas, ctx, canvasWrap, textOverlay, layersList;
+let undoBtn, redoBtn, saveBtn, colorPicker, colorSwatch;
+let lineWidthSel, fontSizeSel, mosaicStr;
+let editorMain, editorDrop, editorFileIn;
 
 // undo/redo history
 let history = [];
@@ -43,6 +30,24 @@ let baseImage = null; // HTMLImageElement
 
 // ── INIT ─────────────────────────────────────────────────
 function init() {
+  // DOM要素を取得
+  canvas       = document.getElementById('mainCanvas');
+  ctx          = canvas ? canvas.getContext('2d') : null;
+  canvasWrap   = document.querySelector('.canvas-wrap');
+  textOverlay  = document.getElementById('textOverlay');
+  layersList   = document.getElementById('layersList');
+  undoBtn      = document.getElementById('undoBtn');
+  redoBtn      = document.getElementById('redoBtn');
+  saveBtn      = document.getElementById('saveBtn');
+  colorPicker  = document.getElementById('colorPicker');
+  colorSwatch  = document.getElementById('colorSwatch');
+  lineWidthSel = document.getElementById('lineWidthSel');
+  fontSizeSel  = document.getElementById('fontSizeSel');
+  mosaicStr    = document.getElementById('mosaicStr');
+  editorMain   = document.getElementById('editorMain');
+  editorDrop   = document.getElementById('editorDrop');
+  editorFileIn = document.getElementById('editorFileInput');
+
   // 初期状態: ドロップエリアを表示、エディタ本体を非表示
   if (editorDrop) editorDrop.style.display = 'block';
   if (editorMain) editorMain.style.display = 'none';
@@ -51,6 +56,7 @@ function init() {
   setupCanvasEvents();
   setupTopbar();
   setupDropZone();
+  setupTextOverlay();
   updateUndoRedo();
 
   // sessionStorage から画像を読み込む（変換ページから渡された場合）
@@ -396,11 +402,14 @@ function commitText() {
   textOverlay.style.display = 'none';
   textOverlay.value = '';
 }
-textOverlay?.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
-  if (e.key === 'Escape') { textOverlay.style.display = 'none'; }
-});
-textOverlay?.addEventListener('blur', commitText);
+function setupTextOverlay() {
+  if (!textOverlay) return;
+  textOverlay.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); }
+    if (e.key === 'Escape') { textOverlay.style.display = 'none'; }
+  });
+  textOverlay.addEventListener('blur', commitText);
+}
 
 // ── CROP ──────────────────────────────────────────────────
 function applyCrop(x1, y1, x2, y2) {
@@ -494,9 +503,13 @@ function setupDropZone() {
       const f = e.target.files[0];
       if (!f) return;
       const reader = new FileReader();
-      reader.onload = ev => { state.imageName = f.name; loadImageSrc(ev.target.result); };
+      reader.onload = ev => {
+        state.imageName = f.name;
+        loadImageSrc(ev.target.result);
+        editorFileIn.value = '';
+      };
+      reader.onerror = () => { alert('画像の読み込みに失敗しました。'); };
       reader.readAsDataURL(f);
-      editorFileIn.value = '';
     });
   }
 
