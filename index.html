@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImageForge — 変換</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/converter.css">
+</head>
+<body>
+
+<div class="drag-overlay" id="dragOverlay">ファイルをドロップ</div>
+
+<div class="wrap">
+  <header>
+    <a class="logo" href="index.html">ImageForge</a>
+    <nav class="header-nav">
+      <a class="nav-link active" href="index.html">変換</a>
+      <a class="nav-link" href="editor.html">編集</a>
+    </nav>
+  </header>
+
+  <div class="section-label">対応形式</div>
+  <div class="formats">
+    <div class="fmt">PNG</div>
+    <div class="fmt">WebP</div>
+    <div class="fmt">GIF</div>
+    <div class="fmt">BMP</div>
+    <div class="fmt">TIFF</div>
+    <div class="fmt">SVG</div>
+    <div class="fmt">ICO</div>
+    <div class="fmt">AVIF</div>
+    <div class="fmt">JPEG</div>
+    <div class="fmt limited">HEIC ※</div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*,.heic,.heif,.tiff,.tif,.bmp,.ico" multiple style="display:none">
+  <div class="drop-zone" id="dropZone">
+    <svg class="drop-icon-svg" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="9" width="30" height="24" rx="2" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M5 26l9-7 7 6 6-5 8 7" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="13" cy="17" r="3" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    <p class="drop-title">ファイルをドロップ、またはクリックして選択</p>
+    <p class="drop-sub">複数ファイル対応 · すべての処理はブラウザ内で完結</p>
+  </div>
+
+  <div class="settings">
+    <div class="setting-card">
+      <label>品質</label>
+      <div class="setting-row">
+        <input type="range" id="quality" min="10" max="100" value="90" step="1">
+        <span class="quality-val" id="qualityVal">90</span>
+      </div>
+    </div>
+    <div class="setting-card">
+      <label>透明部分の背景色</label>
+      <select id="bgColor">
+        <option value="#ffffff">白</option>
+        <option value="#000000">黒</option>
+        <option value="#ff0000">赤</option>
+        <option value="#0000ff">青</option>
+        <option value="#00ff00">緑</option>
+      </select>
+    </div>
+    <div class="setting-card">
+      <label>最大幅</label>
+      <select id="maxWidth">
+        <option value="0">制限なし</option>
+        <option value="3840">4K (3840px)</option>
+        <option value="1920">FHD (1920px)</option>
+        <option value="1280">HD (1280px)</option>
+        <option value="800">800px</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="file-list" id="fileList" style="display:none"></div>
+
+  <div class="heic-note" id="heicNote">
+    ※ HEIC/HEIF はブラウザ標準APIでは変換できません。
+    <a href="https://heic.online" target="_blank">heic.online</a> などの専用ツールをご利用ください。
+  </div>
+
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn-primary" id="convertBtn">変換を実行</button>
+    <button class="btn-ghost"   id="downloadAllBtn" disabled>ZIP でダウンロード</button>
+    <button class="btn-ghost"   id="clearBtn">クリア</button>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="stats" id="statsArea" style="display:none">
+    <div class="stat">
+      <div class="stat-val"   id="statTotal">0</div>
+      <div class="stat-label">ファイル合計</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val"   id="statDone">0</div>
+      <div class="stat-label">変換済み</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val"   id="statSaved">—</div>
+      <div class="stat-label">容量削減</div>
+    </div>
+  </div>
+</div>
+
+<footer class="wrap">
+  <span>すべての処理はブラウザ内で完結。ファイルはサーバーに送信されません。</span>
+  <span>ImageForge</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/converter.js"></script>
+</body>
+</html>
